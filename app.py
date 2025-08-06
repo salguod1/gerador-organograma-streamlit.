@@ -4,6 +4,9 @@ from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
 from pptx.dml.color import RGBColor
+# --- NOVAS IMPORTAÇÕES PARA ALINHAMENTO ---
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+# --- FIM DAS NOVAS IMPORTAÇÕES ---
 import io
 from collections import defaultdict
 
@@ -82,11 +85,7 @@ def build_tree(relationships):
     return tree, root_nodes
 
 def calculate_positions_recursive(node_name, tree, level, sibling_counts, positions, x_offset, level_widths):
-    # --- MUDANÇA APLICADA AQUI ---
-    # Aumentamos o tamanho da caixa para acomodar a fonte maior
     BOX_WIDTH, BOX_HEIGHT = Inches(2.5), Inches(1.2)
-    # --- FIM DA MUDANÇA ---
-    
     H_SPACING, V_SPACING = Inches(0.5), Inches(1.5)
     y = level * (BOX_HEIGHT + V_SPACING)
     x = x_offset + sibling_counts[level] * (BOX_WIDTH + H_SPACING)
@@ -117,13 +116,18 @@ def draw_organogram(slide, relationships, positions, tree):
         shape.text = name
         text_frame = shape.text_frame
         text_frame.word_wrap = True
-        p = text_frame.paragraphs[0]
         
-        # --- MUDANÇAS DE FONTE APLICADAS AQUI ---
+        # --- ALTERAÇÕES PARA CENTRALIZAÇÃO DO TEXTO ---
+        # Define o alinhamento vertical para o meio da caixa
+        text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+        
+        p = text_frame.paragraphs[0]
+        # Define o alinhamento horizontal para o centro
+        p.alignment = PP_ALIGN.CENTER
+        # --- FIM DAS ALTERAÇÕES ---
+
         p.font.name = 'Aptos Display'
         p.font.size = Pt(18)
-        # --- FIM DAS MUDANÇAS DE FONTE ---
-        
         p.font.bold = True
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.font.shadow = True
