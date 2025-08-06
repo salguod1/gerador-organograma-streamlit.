@@ -102,7 +102,7 @@ def calculate_positions_recursive(node_name, tree, level, sibling_counts, positi
         calculate_positions_recursive(child_name, tree, level + 1, sibling_counts, positions, child_x_offset, level_widths)
 
 def draw_organogram(slide, relationships, positions, tree):
-    """Desenha as formas e conectores no slide do PowerPoint com o novo estilo."""
+    """Desenha as formas e conectores no slide do PowerPoint."""
     shapes = {} # Armazena as formas criadas para poder conectar
 
     # 1. Desenha todas as caixas (formas)
@@ -110,34 +110,14 @@ def draw_organogram(slide, relationships, positions, tree):
         shape = slide.shapes.add_shape(
             MSO_SHAPE.ROUNDED_RECTANGLE, pos['x'], pos['y'], pos['width'], pos['height']
         )
-        
-        # --- APLICAÇÃO DOS NOVOS ESTILOS VISUAIS ---
-
-        # 1. Remover o preenchimento da forma (deixa transparente)
-        shape.fill.background()
-
-        # 2. Remover o contorno da forma
-        shape.line.fill.background()
-
-        # --- FIM DOS ESTILOS DE FORMA ---
-
         shape.text = name
-        
+        # Customização da aparência da caixa
         text_frame = shape.text_frame
         text_frame.word_wrap = True
         p = text_frame.paragraphs[0]
         p.font.size = Pt(12)
         p.font.bold = True
-
-        # --- APLICAÇÃO DOS NOVOS ESTILOS DE TEXTO ---
-
-        # 3. Cor do texto: Preto
         p.font.color.rgb = RGBColor(0, 0, 0)
-
-        # 4. Adicionar sombra ao texto
-        p.font.shadow = True
-
-        # --- FIM DOS ESTILOS DE TEXTO ---
         
         shapes[name] = shape
 
@@ -149,32 +129,32 @@ def draw_organogram(slide, relationships, positions, tree):
             from_shape = shapes[parent_name]
             to_shape = shapes[child_name]
 
+            # Adiciona o conector
             connector = slide.shapes.add_connector(
                 MSO_CONNECTOR.ELBOW, 
-                from_shape.left, from_shape.top,
+                from_shape.left, from_shape.top, # Posições iniciais (serão ajustadas)
                 to_shape.left, to_shape.top
             )
             
-            connector.begin_connect(from_shape, 3)
-            connector.end_connect(to_shape, 1)
+            # Conecta o início do conector à parte inferior da forma pai
+            connector.begin_connect(from_shape, 3) # 3 = ponto de conexão central inferior
+            # Conecta o fim do conector à parte superior da forma filha
+            connector.end_connect(to_shape, 1) # 1 = ponto de conexão central superior
             
-            # Estilo do conector (vamos deixar preto para combinar)
-            line = connector.line
-            line.color.rgb = RGBColor(0, 0, 0)
-            line.width = Pt(1.5)
+            # Adiciona o percentual como texto no meio do conector
+            # Isso é um pouco mais complexo, então adicionamos uma caixa de texto perto do conector
+            line_mid_x = connector.left + connector.width / 2
+            line_mid_y = connector.top + connector.height / 2
             
-            # Adiciona a caixa de texto para o percentual
+            # Adiciona uma pequena caixa de texto para o percentual
             textbox = slide.shapes.add_textbox(
-                connector.left + connector.width / 2 - Inches(0.2), 
-                connector.top + connector.height / 2 - Inches(0.1), 
+                line_mid_x - Inches(0.2), line_mid_y - Inches(0.1), 
                 Inches(0.4), Inches(0.2)
             )
             textbox.text = f"{percent}%"
             p = textbox.text_frame.paragraphs[0]
             p.font.size = Pt(10)
-            p.font.color.rgb = RGBColor(0, 0, 0) # Texto do percentual também preto
-            
-            # Remove o fundo e a borda da caixa de texto do percentual
+            # Remove o fundo e a borda da caixa de texto
             textbox.fill.background()
             textbox.line.fill.background()
 
