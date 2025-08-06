@@ -179,11 +179,20 @@ if st.session_state.relationships:
             
             # 3. Criar a apresentação e desenhar o organograma
             prs = Presentation()
-            # Usar um layout em branco
-            blank_slide_layout = prs.slide_layouts[6]
-            slide = prs.slides.add_slide(blank_slide_layout)
-            slide.shapes.title.text = "Estrutura Societária Editável"
+            
+            # --- CORREÇÃO APLICADA AQUI ---
+            # Usar o layout "Título Apenas" ou "Título e Conteúdo" que TEM um placeholder de título.
+            # O layout [5] é geralmente "Título Apenas" (Title Only).
+            title_only_layout = prs.slide_layouts[5]
+            slide = prs.slides.add_slide(title_only_layout)
+            
+            # Agora esta linha funcionará sem erro
+            shapes = slide.shapes
+            shapes.title.text = "Estrutura Societária Editável"
+            # --- FIM DA CORREÇÃO ---
 
+            # A função draw_organogram não tem um 'shapes' no slide.shapes.title.text
+            # então ela não será afetada, mas passamos o slide como antes.
             draw_organogram(slide, st.session_state.relationships, positions, tree)
 
             # 4. Salvar e disponibilizar para download
