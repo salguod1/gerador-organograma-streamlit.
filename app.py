@@ -82,7 +82,11 @@ def build_tree(relationships):
     return tree, root_nodes
 
 def calculate_positions_recursive(node_name, tree, level, sibling_counts, positions, x_offset, level_widths):
-    BOX_WIDTH, BOX_HEIGHT = Inches(2.0), Inches(1.0)
+    # --- MUDANÇA APLICADA AQUI ---
+    # Aumentamos o tamanho da caixa para acomodar a fonte maior
+    BOX_WIDTH, BOX_HEIGHT = Inches(2.5), Inches(1.2)
+    # --- FIM DA MUDANÇA ---
+    
     H_SPACING, V_SPACING = Inches(0.5), Inches(1.5)
     y = level * (BOX_HEIGHT + V_SPACING)
     x = x_offset + sibling_counts[level] * (BOX_WIDTH + H_SPACING)
@@ -103,29 +107,25 @@ def draw_organogram(slide, relationships, positions, tree):
     for name, pos in positions.items():
         shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pos['x'], pos['y'], pos['width'], pos['height'])
         
-        # --- ESTILOS VISUAIS MODIFICADOS AQUI ---
-        
-        # Converte o código hexadecimal #FABE50 para RGB
         SHAPE_COLOR = RGBColor(250, 190, 80)
-        
-        # 1. Define o preenchimento da forma
         shape.fill.solid()
         shape.fill.fore_color.rgb = SHAPE_COLOR
-        
-        # 2. Define o contorno da forma
         line = shape.line
         line.color.rgb = SHAPE_COLOR
-        line.width = Pt(1.5) # Define uma espessura para o contorno ser visível
-        
-        # --- FIM DAS MODIFICAÇÕES DE ESTILO ---
+        line.width = Pt(1.5)
         
         shape.text = name
         text_frame = shape.text_frame
         text_frame.word_wrap = True
         p = text_frame.paragraphs[0]
-        p.font.size = Pt(12)
+        
+        # --- MUDANÇAS DE FONTE APLICADAS AQUI ---
+        p.font.name = 'Aptos Display'
+        p.font.size = Pt(18)
+        # --- FIM DAS MUDANÇAS DE FONTE ---
+        
         p.font.bold = True
-        p.font.color.rgb = RGBColor(0, 0, 0) # Texto continua preto para bom contraste
+        p.font.color.rgb = RGBColor(0, 0, 0)
         p.font.shadow = True
         
         shapes[name] = shape
@@ -140,7 +140,7 @@ def draw_organogram(slide, relationships, positions, tree):
             connector.end_connect(to_shape, 1)
             
             line = connector.line
-            line.color.rgb = RGBColor(0, 0, 0) # Conector continua preto
+            line.color.rgb = RGBColor(0, 0, 0)
             line.width = Pt(1.5)
             
             line_mid_x = connector.left + connector.width / 2
