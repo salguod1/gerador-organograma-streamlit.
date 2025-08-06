@@ -20,7 +20,6 @@ if 'relationships' not in st.session_state:
 col1, col2 = st.columns([1, 1])
 with col1:
     st.header("1. Adicione as Relações Societárias")
-    # ... (O resto da interface do Streamlit é idêntico ao anterior)
     with st.form("relationship_form", clear_on_submit=True):
         controladora = st.text_input("Nome da Empresa Controladora/Holding")
         subsidiaria = st.text_input("Nome da Empresa Subsidiária/Afiliada")
@@ -66,44 +65,36 @@ def build_tree(relationships):
         all_nodes.add(child)
         children_nodes.add(child)
 
-    # Identifica os nós raiz (aqueles que nunca são filhos)
     root_nodes = list(all_nodes - children_nodes)
-    if not root_nodes and all_nodes: # Caso de ciclo ou uma única empresa
+    if not root_nodes and all_nodes:
         root_nodes = [list(all_nodes)[0]]
         
     return tree, root_nodes
 
 def calculate_positions_recursive(node_name, tree, level, sibling_counts, positions, x_offset, level_widths):
     """Calcula recursivamente as posições de cada nó."""
-    # Define as dimensões e espaçamentos
     BOX_WIDTH = Inches(2.0)
     BOX_HEIGHT = Inches(1.0)
     H_SPACING = Inches(0.5)
     V_SPACING = Inches(1.5)
 
-    # Calcula a posição Y baseada no nível
     y = level * (BOX_HEIGHT + V_SPACING)
-
-    # Calcula a posição X
-    # O x_offset é o ponto de partida para este galho da árvore
     x = x_offset + sibling_counts[level] * (BOX_WIDTH + H_SPACING)
     
     positions[node_name] = {'x': x, 'y': y, 'width': BOX_WIDTH, 'height': BOX_HEIGHT}
     sibling_counts[level] += 1
     level_widths[level] = max(level_widths.get(level, 0), x + BOX_WIDTH)
 
-    # Recursão para os filhos
-    child_x_offset = x # O primeiro filho começa alinhado com o pai
+    child_x_offset = x
     for i, child_info in enumerate(tree[node_name]['children']):
         child_name = child_info['name']
-        # Ajusta o offset para os filhos subsequentes para que não se sobreponham
         if i > 0:
            child_x_offset = level_widths.get(level + 1, child_x_offset) + H_SPACING
         calculate_positions_recursive(child_name, tree, level + 1, sibling_counts, positions, child_x_offset, level_widths)
 
 def draw_organogram(slide, relationships, positions, tree):
     """Desenha as formas e conectores no slide do PowerPoint."""
-    shapes = {} # Armazena as formas criadas para poder conectar
+    shapes = {}
 
     # 1. Desenha todas as caixas (formas)
     for name, pos in positions.items():
@@ -111,7 +102,6 @@ def draw_organogram(slide, relationships, positions, tree):
             MSO_SHAPE.ROUNDED_RECTANGLE, pos['x'], pos['y'], pos['width'], pos['height']
         )
         shape.text = name
-        # Customização da aparência da caixa
         text_frame = shape.text_frame
         text_frame.word_wrap = True
         p = text_frame.paragraphs[0]
@@ -124,29 +114,21 @@ def draw_organogram(slide, relationships, positions, tree):
     # 2. Desenha todos os conectores
     for rel in relationships:
         parent_name, child_name, percent = rel['Controladora'], rel['Subsidiária'], rel['Percentual']
-        
         if parent_name in shapes and child_name in shapes:
             from_shape = shapes[parent_name]
             to_shape = shapes[child_name]
 
-            # Adiciona o conector
             connector = slide.shapes.add_connector(
                 MSO_CONNECTOR.ELBOW, 
-                from_shape.left, from_shape.top, # Posições iniciais (serão ajustadas)
+                from_shape.left, from_shape.top,
                 to_shape.left, to_shape.top
             )
+            connector.begin_connect(from_shape, 3)
+            connector.end_connect(to_shape, 1)
             
-            # Conecta o início do conector à parte inferior da forma pai
-            connector.begin_connect(from_shape, 3) # 3 = ponto de conexão central inferior
-            # Conecta o fim do conector à parte superior da forma filha
-            connector.end_connect(to_shape, 1) # 1 = ponto de conexão central superior
-            
-            # Adiciona o percentual como texto no meio do conector
-            # Isso é um pouco mais complexo, então adicionamos uma caixa de texto perto do conector
             line_mid_x = connector.left + connector.width / 2
             line_mid_y = connector.top + connector.height / 2
             
-            # Adiciona uma pequena caixa de texto para o percentual
             textbox = slide.shapes.add_textbox(
                 line_mid_x - Inches(0.2), line_mid_y - Inches(0.1), 
                 Inches(0.4), Inches(0.2)
@@ -154,7 +136,6 @@ def draw_organogram(slide, relationships, positions, tree):
             textbox.text = f"{percent}%"
             p = textbox.text_frame.paragraphs[0]
             p.font.size = Pt(10)
-            # Remove o fundo e a borda da caixa de texto
             textbox.fill.background()
             textbox.line.fill.background()
 
@@ -163,10 +144,8 @@ if st.session_state.relationships:
     if st.button("🚀 Gerar Apresentação Editável", type="primary"):
         with st.spinner("Construindo organograma editável... Isso pode levar um momento."):
             
-            # 1. Construir a árvore hierárquica
             tree, root_nodes = build_tree(st.session_state.relationships)
 
-            # 2. Calcular as posições de cada nó
             positions = {}
             sibling_counts = defaultdict(int)
             level_widths = {}
@@ -174,25 +153,19 @@ if st.session_state.relationships:
 
             for root_name in root_nodes:
                 calculate_positions_recursive(root_name, tree, 0, sibling_counts, positions, current_x_offset, level_widths)
-                # Atualiza o offset para o próximo organograma (se houver mais de uma raiz)
                 current_x_offset = max(level_widths.values() or [0]) + Inches(1.0)
             
             # 3. Criar a apresentação e desenhar o organograma
             prs = Presentation()
             
-            # --- CORREÇÃO APLICADA AQUI ---
-            # Usar o layout "Título Apenas" ou "Título e Conteúdo" que TEM um placeholder de título.
-            # O layout [5] é geralmente "Título Apenas" (Title Only).
-            title_only_layout = prs.slide_layouts[5]
-            slide = prs.slides.add_slide(title_only_layout)
+            # --- ALTERAÇÃO APLICADA AQUI ---
+            # Usar o layout "Em Branco" (geralmente o índice 6) para um slide completamente limpo
+            blank_slide_layout = prs.slide_layouts[6]
+            slide = prs.slides.add_slide(blank_slide_layout)
             
-            # Agora esta linha funcionará sem erro
-            shapes = slide.shapes
-            shapes.title.text = "Estrutura Societária Editável"
-            # --- FIM DA CORREÇÃO ---
+            # As linhas que adicionavam o título foram removidas
+            # --- FIM DA ALTERAÇÃO ---
 
-            # A função draw_organogram não tem um 'shapes' no slide.shapes.title.text
-            # então ela não será afetada, mas passamos o slide como antes.
             draw_organogram(slide, st.session_state.relationships, positions, tree)
 
             # 4. Salvar e disponibilizar para download
