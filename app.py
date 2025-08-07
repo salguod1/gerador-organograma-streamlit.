@@ -11,7 +11,12 @@ from collections import defaultdict
 
 st.set_page_config(layout="wide", page_title="Gerador de Organograma Editável")
 st.title("Gerador de Organograma Editável para PowerPoint 🏢")
-st.markdown("<p style='font-size:16px; color:gray;'>by <strong>Geaco - Com &amp; Serv</strong
+
+st.markdown(
+    "<p style='font-size:16px; color:gray;'>by <strong>Geaco - Com &amp; Serv</strong></p>",
+    unsafe_allow_html=True
+)
+
 st.info("Este aplicativo gera um organograma com formas e conectores que podem ser editados diretamente no PowerPoint.")
 
 if 'relationships' not in st.session_state:
