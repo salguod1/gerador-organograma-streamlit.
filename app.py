@@ -113,6 +113,7 @@ def draw_organogram(slide, relationships, positions, tree):
         shape.text = name
         text_frame = shape.text_frame
         text_frame.word_wrap = True
+        text_frame.auto_size = True  # ✅ Redimensiona a forma para ajustar ao texto
         text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
         p = text_frame.paragraphs[0]
         p.alignment = PP_ALIGN.CENTER
