@@ -3,18 +3,25 @@ import pandas as pd
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.dml.color import RGBColor
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 import io
 from collections import defaultdict
 
+# --- Configuração da Página ---
 st.set_page_config(layout="wide", page_title="Gerador de Organograma Editável")
 st.title("Gerador de Organograma Editável para PowerPoint 🏢")
+
+# --- Assinatura ---
+st.markdown("<p style='font-size:16px; color:gray;'>by <strong>Geaco - Com &amp; Serv</strong></p>", unsafe_allow_html=True)
+
 st.info("Este aplicativo gera um organograma com formas e conectores que podem ser editados diretamente no PowerPoint.")
 
+# --- Inicialização do Estado da Aplicação ---
 if 'relationships' not in st.session_state:
     st.session_state.relationships = []
 
+# --- Interface do Streamlit ---
 col1, col2 = st.columns([1, 1.2])
 with col1:
     st.header("1. Adicione as Relações Societárias")
@@ -64,6 +71,7 @@ with col2:
 st.markdown("---")
 st.header("3. Gerar a Apresentação Editável")
 
+# --- Funções Auxiliares ---
 def build_tree(relationships):
     tree = defaultdict(lambda: {'children': [], 'data': None})
     all_nodes, children_nodes = set(), set()
@@ -77,19 +85,20 @@ def build_tree(relationships):
         root_nodes = [list(all_nodes)[0]]
     return tree, root_nodes
 
-def calculate_positions_recursive(node_name, tree, level, positions, x_offset):
+def calculate_positions_recursive(node_name, tree, level, sibling_counts, positions, x_offset, level_widths):
     BOX_WIDTH, BOX_HEIGHT = Inches(2.5), Inches(1.2)
     H_SPACING, V_SPACING = Inches(0.5), Inches(1.5)
-    children = tree[node_name]['children']
-    total_width = len(children) * BOX_WIDTH + max(0, len(children) - 1) * H_SPACING
-    x = x_offset
     y = level * (BOX_HEIGHT + V_SPACING)
-    positions[node_name] = {'x': x + total_width / 2 - BOX_WIDTH / 2, 'y': y, 'width': BOX_WIDTH, 'height': BOX_HEIGHT}
-    child_x = x
-    for child_info in children:
+    x = x_offset + sibling_counts[level] * (BOX_WIDTH + H_SPACING)
+    positions[node_name] = {'x': x, 'y': y, 'width': BOX_WIDTH, 'height': BOX_HEIGHT}
+    sibling_counts[level] += 1
+    level_widths[level] = max(level_widths.get(level, 0), x + BOX_WIDTH)
+    child_x_offset = x
+    for i, child_info in enumerate(tree[node_name]['children']):
         child_name = child_info['name']
-        calculate_positions_recursive(child_name, tree, level + 1, positions, child_x)
-        child_x += BOX_WIDTH + H_SPACING
+        if i > 0:
+            child_x_offset = level_widths.get(level + 1, child_x_offset) + H_SPACING
+        calculate_positions_recursive(child_name, tree, level + 1, sibling_counts, positions, child_x_offset, level_widths)
 
 def draw_organogram(slide, relationships, positions, tree):
     shapes = {}
@@ -98,9 +107,8 @@ def draw_organogram(slide, relationships, positions, tree):
         SHAPE_COLOR = RGBColor(250, 190, 80)
         shape.fill.solid()
         shape.fill.fore_color.rgb = SHAPE_COLOR
-        line = shape.line
-        line.color.rgb = SHAPE_COLOR
-        line.width = Pt(1.5)
+        shape.line.color.rgb = SHAPE_COLOR
+        shape.line.width = Pt(1.5)
         shape.text = name
         text_frame = shape.text_frame
         text_frame.word_wrap = True
@@ -118,22 +126,14 @@ def draw_organogram(slide, relationships, positions, tree):
         parent_name, child_name, percent = rel['Controladora'], rel['Subsidiária'], rel['Percentual']
         if parent_name in shapes and child_name in shapes:
             from_shape, to_shape = shapes[parent_name], shapes[child_name]
-            connector = slide.shapes.add_connector(
-                MSO_CONNECTOR.ELBOW,
-                from_shape.left + from_shape.width / 2,
-                from_shape.top + from_shape.height,
-                to_shape.left + to_shape.width / 2,
-                to_shape.top
-            )
-            connector.begin_connect(from_shape, 2)  # ✅ Bottom center
-            connector.end_connect(to_shape, 0)      # ✅ Top center
+            connector = slide.shapes.add_connector(MSO_CONNECTOR.ELBOW, from_shape.left, from_shape.top, to_shape.left, to_shape.top)
+            connector.begin_connect(from_shape, 3)
+            connector.end_connect(to_shape, 1)
             connector.line.color.rgb = RGBColor(0, 0, 0)
             connector.line.width = Pt(1.5)
-
-            # Adicionar texto com percentual
-            mid_x = (from_shape.left + to_shape.left) / 2
-            mid_y = (from_shape.top + to_shape.top) / 2
-            textbox = slide.shapes.add_textbox(mid_x - Inches(0.2), mid_y - Inches(0.1), Inches(0.4), Inches(0.2))
+            line_mid_x = connector.left + connector.width / 2
+            line_mid_y = connector.top + connector.height / 2
+            textbox = slide.shapes.add_textbox(line_mid_x - Inches(0.2), line_mid_y - Inches(0.1), Inches(0.4), Inches(0.2))
             textbox.text = f"{percent}%"
             p = textbox.text_frame.paragraphs[0]
             p.font.size = Pt(10)
@@ -141,16 +141,18 @@ def draw_organogram(slide, relationships, positions, tree):
             textbox.fill.background()
             textbox.line.fill.background()
 
+# --- Geração do PPT ---
 if st.session_state.relationships:
     if st.button("🚀 Gerar Apresentação Editável", type="primary"):
         with st.spinner("Construindo organograma editável... Isso pode levar um momento."):
             tree, root_nodes = build_tree(st.session_state.relationships)
             positions = {}
+            sibling_counts = defaultdict(int)
+            level_widths = {}
             current_x_offset = Inches(0.5)
             for root_name in root_nodes:
-                calculate_positions_recursive(root_name, tree, 0, positions, current_x_offset)
-                max_x = max(pos['x'] + pos['width'] for pos in positions.values())
-                current_x_offset = max_x + Inches(1.0)
+                calculate_positions_recursive(root_name, tree, 0, sibling_counts, positions, current_x_offset, level_widths)
+                current_x_offset = max(level_widths.values() or [0]) + Inches(1.0)
             prs = Presentation()
             blank_slide_layout = prs.slide_layouts[6]
             slide = prs.slides.add_slide(blank_slide_layout)
