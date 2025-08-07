@@ -1,28 +1,24 @@
 # --- Importações ---
 import streamlit as st
-import pandas as pd
 from pptx import Presentation
 from pptx.util import Inches, Pt
 from pptx.enum.shapes import MSO_SHAPE, MSO_CONNECTOR
-from pptx.dml.color import RGBColor
 from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.dml.color import RGBColor
 import io
 from collections import defaultdict
 
-# --- Configuração da Página ---
+# Configuração da página
 st.set_page_config(layout="wide", page_title="Gerador de Organograma Editável")
 st.title("Gerador de Organograma Editável para PowerPoint 🏢")
-
-# --- Assinatura ---
 st.markdown("<p style='font-size:16px; color:gray;'>by <strong>Geaco - Com &amp; Serv</strong></p>", unsafe_allow_html=True)
-
 st.info("Este aplicativo gera um organograma com formas e conectores que podem ser editados diretamente no PowerPoint.")
 
-# --- Inicialização do Estado da Aplicação ---
+# Inicialização do estado
 if 'relationships' not in st.session_state:
     st.session_state.relationships = []
 
-# --- Interface do Streamlit ---
+# Interface de entrada
 col1, col2 = st.columns([1, 1.2])
 with col1:
     st.header("1. Adicione as Relações Societárias")
@@ -30,7 +26,6 @@ with col1:
         controladora = st.text_input("Nome da Empresa Controladora/Holding")
         subsidiaria = st.text_input("Nome da Empresa Subsidiária/Afiliada")
         percentual = st.number_input("Percentual de Posse (%)", min_value=0.0, max_value=100.0, step=0.1, format="%.1f")
-        
         submitted = st.form_submit_button("➕ Adicionar Relação")
         if submitted:
             if not controladora or not subsidiaria:
@@ -52,17 +47,14 @@ with col2:
         header_cols[2].markdown("**Percentual**")
         header_cols[3].markdown("**Ação**")
         st.markdown("---")
-
         for index, rel in enumerate(st.session_state.relationships):
             row_cols = st.columns([3, 3, 2, 1])
             row_cols[0].write(rel["Controladora"])
             row_cols[1].write(rel["Subsidiária"])
             row_cols[2].write(f"{rel['Percentual']}%")
-            
             if row_cols[3].button("🗑️", key=f"delete_{index}", help="Excluir esta relação"):
                 st.session_state.relationships.pop(index)
                 st.rerun()
-
         if st.button("🧹 Limpar Tudo", use_container_width=True):
             st.session_state.relationships = []
             st.rerun()
@@ -72,7 +64,7 @@ with col2:
 st.markdown("---")
 st.header("3. Gerar a Apresentação Editável")
 
-# --- Funções Auxiliares ---
+# Funções auxiliares
 def build_tree(relationships):
     tree = defaultdict(lambda: {'children': [], 'data': None})
     all_nodes, children_nodes = set(), set()
@@ -87,28 +79,31 @@ def build_tree(relationships):
     return tree, root_nodes
 
 def calculate_positions_recursive(node_name, tree, level, sibling_counts, positions, x_offset, level_widths):
-    BOX_WIDTH, BOX_HEIGHT = Inches(2.5), Inches(1.2)
-    H_SPACING, V_SPACING = Inches(0.5), Inches(1.5)
-    y = level * (BOX_HEIGHT + V_SPACING)
-    x = x_offset + sibling_counts[level] * (BOX_WIDTH + H_SPACING)
-    positions[node_name] = {'x': x, 'y': y, 'width': BOX_WIDTH, 'height': BOX_HEIGHT}
+    font_size = 14
+    char_width = Pt(font_size * 0.6)
+    text_len = len(node_name)
+    box_width = max(Inches(2.0), Inches((char_width * text_len) / Pt(1)))
+    box_height = Inches(1.0)
+    h_spacing, v_spacing = Inches(0.5), Inches(1.5)
+    y = level * (box_height + v_spacing)
+    x = x_offset + sibling_counts[level] * (box_width + h_spacing)
+    positions[node_name] = {'x': x, 'y': y, 'width': box_width, 'height': box_height}
     sibling_counts[level] += 1
-    level_widths[level] = max(level_widths.get(level, 0), x + BOX_WIDTH)
+    level_widths[level] = max(level_widths.get(level, 0), x + box_width)
     child_x_offset = x
     for i, child_info in enumerate(tree[node_name]['children']):
         child_name = child_info['name']
         if i > 0:
-            child_x_offset = level_widths.get(level + 1, child_x_offset) + H_SPACING
+            child_x_offset = level_widths.get(level + 1, child_x_offset) + h_spacing
         calculate_positions_recursive(child_name, tree, level + 1, sibling_counts, positions, child_x_offset, level_widths)
 
 def draw_organogram(slide, relationships, positions, tree):
     shapes = {}
     for name, pos in positions.items():
-        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, pos['x'], pos['y'], pos['width'], pos['height'])
-        SHAPE_COLOR = RGBColor(250, 190, 80)
+        shape = slide.shapes.add_shape(MSO_SHAPE.ROUNDED_RECTANGLE, int(pos['x']), int(pos['y']), int(pos['width']), int(pos['height']))
         shape.fill.solid()
-        shape.fill.fore_color.rgb = SHAPE_COLOR
-        shape.line.color.rgb = SHAPE_COLOR
+        shape.fill.fore_color.rgb = RGBColor(250, 190, 80)
+        shape.line.color.rgb = RGBColor(250, 190, 80)
         shape.line.width = Pt(1.5)
         shape.text = name
         text_frame = shape.text_frame
@@ -117,7 +112,7 @@ def draw_organogram(slide, relationships, positions, tree):
         p = text_frame.paragraphs[0]
         p.alignment = PP_ALIGN.CENTER
         p.font.name = 'Aptos Display'
-        p.font.size = Pt(18)
+        p.font.size = Pt(14)
         p.font.bold = True
         p.font.color.rgb = RGBColor(0, 0, 0)
         p.font.shadow = True
@@ -127,14 +122,20 @@ def draw_organogram(slide, relationships, positions, tree):
         parent_name, child_name, percent = rel['Controladora'], rel['Subsidiária'], rel['Percentual']
         if parent_name in shapes and child_name in shapes:
             from_shape, to_shape = shapes[parent_name], shapes[child_name]
-            connector = slide.shapes.add_connector(MSO_CONNECTOR.ELBOW, from_shape.left, from_shape.top, to_shape.left, to_shape.top)
-            connector.begin_connect(from_shape, 3)
-            connector.end_connect(to_shape, 1)
+            connector = slide.shapes.add_connector(
+                MSO_CONNECTOR.ELBOW,
+                int(from_shape.left + from_shape.width / 2),
+                int(from_shape.top + from_shape.height),
+                int(to_shape.left + to_shape.width / 2),
+                int(to_shape.top)
+            )
+            connector.begin_connect(from_shape, 2)
+            connector.end_connect(to_shape, 0)
             connector.line.color.rgb = RGBColor(0, 0, 0)
             connector.line.width = Pt(1.5)
-            line_mid_x = connector.left + connector.width / 2
-            line_mid_y = connector.top + connector.height / 2
-            textbox = slide.shapes.add_textbox(line_mid_x - Inches(0.2), line_mid_y - Inches(0.1), Inches(0.4), Inches(0.2))
+            mid_x = int((from_shape.left + to_shape.left) / 2)
+            mid_y = int((from_shape.top + to_shape.top) / 2)
+            textbox = slide.shapes.add_textbox(mid_x - Inches(0.2), mid_y - Inches(0.1), Inches(0.4), Inches(0.2))
             textbox.text = f"{percent}%"
             p = textbox.text_frame.paragraphs[0]
             p.font.size = Pt(10)
@@ -142,7 +143,7 @@ def draw_organogram(slide, relationships, positions, tree):
             textbox.fill.background()
             textbox.line.fill.background()
 
-# --- Geração do PPT ---
+# Geração do PPT
 if st.session_state.relationships:
     if st.button("🚀 Gerar Apresentação Editável", type="primary"):
         with st.spinner("Construindo organograma editável... Isso pode levar um momento."):
@@ -154,7 +155,20 @@ if st.session_state.relationships:
             for root_name in root_nodes:
                 calculate_positions_recursive(root_name, tree, 0, sibling_counts, positions, current_x_offset, level_widths)
                 current_x_offset = max(level_widths.values() or [0]) + Inches(1.0)
+
+            # Centralizar horizontalmente
+            SLIDE_WIDTH = Inches(10)
+            min_x = min(pos['x'] for pos in positions.values())
+            max_x = max(pos['x'] + pos['width'] for pos in positions.values())
+            total_width = max_x - min_x
+            if total_width < SLIDE_WIDTH:
+                shift_x = (SLIDE_WIDTH - total_width) / 2 - min_x
+                for pos in positions.values():
+                    pos['x'] += shift_x
+
             prs = Presentation()
+            prs.slide_width = SLIDE_WIDTH
+            prs.slide_height = Inches(7.5)
             blank_slide_layout = prs.slide_layouts[6]
             slide = prs.slides.add_slide(blank_slide_layout)
             draw_organogram(slide, st.session_state.relationships, positions, tree)
@@ -170,6 +184,7 @@ if st.session_state.relationships:
             )
 else:
     st.warning("Adicione pelo menos uma relação para gerar o organograma.")
+
 
 
 
