@@ -126,7 +126,15 @@ def draw_organogram(slide, relationships, positions, tree):
         parent_name, child_name, percent = rel['Controladora'], rel['Subsidiária'], rel['Percentual']
         if parent_name in shapes and child_name in shapes:
             from_shape, to_shape = shapes[parent_name], shapes[child_name]
-            connector = slide.shapes.add_connector(MSO_CONNECTOR.ELBOW, from_shape.left, from_shape.top, to_shape.left, to_shape.top)
+            
+connector = slide.shapes.add_connector(
+    MSO_CONNECTOR.ELBOW,
+    int(from_shape.left + from_shape.width / 2),
+    int(from_shape.top + from_shape.height),
+    int(to_shape.left + to_shape.width / 2),
+    int(to_shape.top)
+)
+
             connector.begin_connect(from_shape, 3)
             connector.end_connect(to_shape, 1)
             connector.line.color.rgb = RGBColor(0, 0, 0)
