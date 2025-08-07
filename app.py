@@ -7,10 +7,16 @@ from pptx.dml.color import RGBColor
 import io
 from collections import defaultdict
 
+# --- Configuração da Página ---
 st.set_page_config(layout="wide", page_title="Gerador de Organograma Editável")
 st.title("Gerador de Organograma Editável para PowerPoint 🏢")
+
+# --- Assinatura ---
+st.markdown("<p style='font-size:16px; color:gray;'>by <strong>Geaco - Com &amp; Serv</strong></p>", unsafe_allow_html=True)
+
 st.info("Este aplicativo gera um organograma com formas e conectores que podem ser editados diretamente no PowerPoint.")
 
+# --- Inicialização do Estado da Aplicação ---
 if 'relationships' not in st.session_state:
     st.session_state.relationships = []
 
