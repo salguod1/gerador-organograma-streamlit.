@@ -125,8 +125,8 @@ def draw_organogram(slide, relationships, positions, tree):
                 to_shape.left + to_shape.width / 2,
                 to_shape.top
             )
-            connector.begin_connect(from_shape, 6)  # Bottom center
-            connector.end_connect(to_shape, 0)      # Top center
+            connector.begin_connect(from_shape, 2)  # ✅ Bottom center
+            connector.end_connect(to_shape, 0)      # ✅ Top center
             connector.line.color.rgb = RGBColor(0, 0, 0)
             connector.line.width = Pt(1.5)
 
